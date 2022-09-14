@@ -5,3 +5,12 @@
 body {
   background-color: #f5f5f4;
 }
+
+.opcode-desc-container {
+  line-height: 200%;
+}
+
+.opcode-desc-container p {
+  margin-top: 8px;
+  margin-bottom: 4px;
+}

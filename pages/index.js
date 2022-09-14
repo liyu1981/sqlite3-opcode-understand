@@ -63,7 +63,7 @@ function PlanView({ code, setCode, setOpCodeSelected }) {
   return (
     <div >
       <textarea ref={taRef}
-        className="border-zinc-500 border p-1 w-full min-h-fit font-mono text-xs"
+        className="border-zinc-500 border p-1 w-full min-h-fit font-mono"
         onChange={(e) => setCode(e.target.value)}
         onDoubleClick={(e) => {
           const s = getSel(taRef.current);
@@ -85,11 +85,11 @@ function OpCodeView({ opCodeSelected, opcodeTab }) {
       <div>
         <div className="bg-red-100 rounded mt-4 mb-8 p-2">
           <b>Opcode: </b><br></br>
-          {opCodeSelected}
+          <span className="text-lg">{opCodeSelected}</span>
         </div>
         <div className="bg-sky-100 rounded p-2">
           <b>Description:</b><br />
-          <div dangerouslySetInnerHTML={{ __html: opcodeDesc }}></div>
+          <div className="opcode-desc-container text-lg" dangerouslySetInnerHTML={{ __html: opcodeDesc }}></div>
         </div>
       </div>
     );
@@ -118,16 +118,16 @@ export default function Home({ opcodeTab }) {
 
   return (
     <div>
+      <div className="grid grid-cols-10 gap-4 fixed w-full" style={{ pointerEvents: "none" }}>
+        <div className={panelClassName + " col-start-7 col-span-4"}>
+          <h2 className="uppercase text-gray-400 mb-4">Sqlite Opcode Explanation</h2>
+          <OpCodeView opCodeSelected={opCodeSelected} opcodeTab={opcodeTab} />
+        </div>
+      </div>
       <div className="grid grid-cols-10 gap-4">
         <div className={panelClassName + " col-span-6"}>
           <h2 className="uppercase text-gray-400 mb-4">Sqlite Query Plan</h2>
           <PlanView code={code} setCode={setCode} setOpCodeSelected={setOpCodeSelected} />
-        </div>
-        <div className="grid grid-cols-10 gap-4 fixed">
-          <div className={panelClassName + " col-start-7 col-span-4"}>
-            <h2 className="uppercase text-gray-400 mb-4">Sqlite Opcode Explanation</h2>
-            <OpCodeView opCodeSelected={opCodeSelected} opcodeTab={opcodeTab} />
-          </div>
         </div>
       </div>
     </div>
