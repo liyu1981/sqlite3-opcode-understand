@@ -130,6 +130,12 @@ export default function Home({ opcodeTab }) {
           <PlanView code={code} setCode={setCode} setOpCodeSelected={setOpCodeSelected} />
         </div>
       </div>
+      <div className="flex flex-col">
+        <div className="text-center mt-2">
+          Read the doc of Sqlite3 Opcode here:
+          <a href="https://www.sqlite.org/opcode.html" target="_blank" rel="noreferrer">https://www.sqlite.org/opcode.html</a>
+        </div>
+      </div>
     </div>
   );
 }
