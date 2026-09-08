@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { GetServerSideProps, NextPage } from "next";
 
 import { JSDOM } from 'jsdom';
 import got from 'got';
@@ -10,7 +11,7 @@ const userPlanMax = 10;
 
 const sqliteOpcodeUrl = 'https://www.sqlite.org/opcode.html';
 
-const buildinQueryPlans = [
+const buildinQueryPlans: string[] = [
   `sqlite> explain select 1;
   addr  opcode         p1    p2    p3    p4             p5  comment
   ----  -------------  ----  ----  ----  -------------  --  -------------
@@ -99,36 +100,53 @@ addr  opcode         p1    p2    p3    p4             p5  comment
 `,
 ];
 
-function genOpcodeTabFromDom(tabEl) {
-  const opcodeTab = {};
+interface OpcodeTab {
+  [key: string]: string;
+}
+
+function genOpcodeTabFromDom(tabEl: Element): OpcodeTab {
+  const opcodeTab: OpcodeTab = {};
   const rows = tabEl.querySelectorAll('tr');
   rows.forEach(row => {
-    const [td1, td2] = row.querySelectorAll('td');
+    const tds = row.querySelectorAll('td');
+    const td1 = tds[0];
+    const td2 = tds[1];
     if (td1 && td2) {
-      opcodeTab[td1.textContent.trim()] = td2.innerHTML;
+      opcodeTab[td1.textContent?.trim() ?? ''] = td2.innerHTML;
     }
   });
   return opcodeTab;
 }
 
-function genOpcodeTab() {
-  return got(sqliteOpcodeUrl).then(response => {
+async function genOpcodeTab(): Promise<OpcodeTab | undefined> {
+  try {
+    const response = await got(sqliteOpcodeUrl);
     const dom = new JSDOM(response.body);
-    //console.log(dom.window.document.querySelector('div.optab table').textContent);
-    return genOpcodeTabFromDom(dom.window.document.querySelector('div.optab table'));
-  }).catch(err => {
+    const table = dom.window.document.querySelector('div.optab table');
+    if (table) {
+      return genOpcodeTabFromDom(table);
+    }
+    return undefined;
+  } catch (err) {
     console.log(err);
-  });
-}
-
-export async function getServerSideProps(context) {
-  const opcodeTab = await genOpcodeTab();
-  return {
-    props: { opcodeTab }, // will be passed to the page component as props
+    return undefined;
   }
 }
 
-function Toolbar({ setCode, userPlans, saveCurrentAsUserPlan }) {
+export const getServerSideProps: GetServerSideProps<{ opcodeTab: OpcodeTab }> = async () => {
+  const opcodeTab = await genOpcodeTab();
+  return {
+    props: { opcodeTab: opcodeTab ?? {} },
+  };
+};
+
+interface ToolbarProps {
+  setCode: (code: string) => void;
+  userPlans: string[];
+  saveCurrentAsUserPlan: () => void;
+}
+
+function Toolbar({ setCode, userPlans, saveCurrentAsUserPlan }: ToolbarProps) {
   const buildinQueryPlanOptions = buildinQueryPlans.map((qp, index) => {
     return (<option key={`buildin-${index}`} value={`buildin-${index}`}>{qp.split('\n')[0]}</option>);
   });
@@ -137,7 +155,7 @@ function Toolbar({ setCode, userPlans, saveCurrentAsUserPlan }) {
     return (<option key={`user-${index}`} value={`user-${index}`}>{qp.split('\n')[0]}</option>);
   });
 
-  const onChange = (e) => {
+  const onChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const v = e.target.value;
     if (v && v.startsWith('buildin-')) {
       const i = parseInt(v.split('-')[1]);
@@ -162,22 +180,25 @@ function Toolbar({ setCode, userPlans, saveCurrentAsUserPlan }) {
   );
 }
 
-function PlanView({ code, setCode, setOpCodeSelected }) {
-  const taRef = useRef();
-  function textAreaAdjust(element) {
+interface PlanViewProps {
+  code: string;
+  setCode: (code: string) => void;
+  setOpCodeSelected: (opCode: string | null) => void;
+}
+
+function PlanView({ code, setCode, setOpCodeSelected }: PlanViewProps) {
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  function textAreaAdjust(element: HTMLTextAreaElement | null) {
     if (element) {
       element.style.height = "1px";
       element.style.height = (25 + element.scrollHeight) + "px";
     }
   }
-  function getSel(element) {
+  function getSel(element: HTMLTextAreaElement | null): string {
     if (element) {
-      // Obtain the index of the first selected character
       const start = element.selectionStart;
-      // Obtain the index of the last selected character
       const finish = element.selectionEnd;
-      // Obtain the selected text
-      const sel = element.value.substring(start, finish);
+      const sel = element.value.substring(start ?? 0, finish ?? 0);
       return sel;
     } else {
       return '';
@@ -203,8 +224,13 @@ function PlanView({ code, setCode, setOpCodeSelected }) {
   );
 }
 
-function OpCodeView({ opCodeSelected, opcodeTab }) {
-  const opcodeDesc = opcodeTab[opCodeSelected] ?? null;
+interface OpCodeViewProps {
+  opCodeSelected: string | null;
+  opcodeTab: OpcodeTab;
+}
+
+function OpCodeView({ opCodeSelected, opcodeTab }: OpCodeViewProps) {
+  const opcodeDesc = opCodeSelected ? (opcodeTab[opCodeSelected] ?? null) : null;
   return opcodeDesc === null
     ? (<div></div>)
     : (
@@ -221,24 +247,30 @@ function OpCodeView({ opCodeSelected, opcodeTab }) {
     );
 }
 
-function getLastPlan() {
+function getLastPlan(): string {
+  if (typeof window === 'undefined') return "";
   const stored = window.localStorage.getItem(localStorageKey);
   return stored === null ? "" : stored;
 }
 
-function getUserPlans() {
+function getUserPlans(): string[] {
+  if (typeof window === 'undefined') return [];
   const stored = window.localStorage.getItem(localStorageUserPlanKey);
   return stored === null ? [] : JSON.parse(stored);
 }
 
 const panelClassName = "bg-white m-4 rounded shadow-sm p-4";
 
-export default function Home({ opcodeTab }) {
-  const [code, setCodeImpl] = useState("");
-  const [opCodeSelected, setOpCodeSelected] = useState(null);
-  const [userPlans, setUserPlans] = useState([]);
+interface HomeProps {
+  opcodeTab: OpcodeTab;
+}
 
-  const setCode = (code) => {
+const Home: NextPage<HomeProps> = ({ opcodeTab }) => {
+  const [code, setCodeImpl] = useState<string>("");
+  const [opCodeSelected, setOpCodeSelected] = useState<string | null>(null);
+  const [userPlans, setUserPlans] = useState<string[]>([]);
+
+  const setCode = (code: string) => {
     window.localStorage.setItem(localStorageKey, code);
     setCodeImpl(code);
   };
@@ -282,4 +314,6 @@ export default function Home({ opcodeTab }) {
       </div>
     </div>
   );
-}
+};
+
+export default Home;
