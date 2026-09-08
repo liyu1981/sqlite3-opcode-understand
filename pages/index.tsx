@@ -194,15 +194,16 @@ function PlanView({ code, setCode, setOpCodeSelected }: PlanViewProps) {
       element.style.height = (25 + element.scrollHeight) + "px";
     }
   }
-  function getSel(element: HTMLTextAreaElement | null): string {
-    if (element) {
-      const start = element.selectionStart;
-      const finish = element.selectionEnd;
-      const sel = element.value.substring(start ?? 0, finish ?? 0);
-      return sel;
-    } else {
-      return '';
-    }
+  function getSelectedOpcode(): string {
+    const element = taRef.current;
+    if (!element) return '';
+    const start = element.selectionStart;
+    const finish = element.selectionEnd;
+    if (start === null || finish === null || start === finish) return '';
+    const selectedText = element.value.substring(start, finish).trim();
+    // Try to extract opcode name - it's typically a single word like "Init", "Integer", etc.
+    const opcodeMatch = selectedText.match(/^([A-Za-z]+)/);
+    return opcodeMatch ? opcodeMatch[1] : selectedText;
   }
   useEffect(() => {
     textAreaAdjust(taRef.current);
@@ -212,11 +213,14 @@ function PlanView({ code, setCode, setOpCodeSelected }: PlanViewProps) {
       <textarea ref={taRef}
         className="border-zinc-500 border p-1 w-full min-h-fit font-mono"
         onChange={(e) => setCode(e.target.value)}
-        onDoubleClick={(e) => {
-          const s = getSel(taRef.current);
-          if (s.length > 0) {
-            setOpCodeSelected(s);
-          }
+        onMouseUp={() => {
+          // Use setTimeout to allow selection to complete
+          setTimeout(() => {
+            const opcode = getSelectedOpcode();
+            if (opcode.length > 0) {
+              setOpCodeSelected(opcode);
+            }
+          }, 10);
         }}
         value={code}>
       </textarea>
